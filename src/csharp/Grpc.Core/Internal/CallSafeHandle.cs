@@ -134,9 +134,19 @@ namespace Grpc.Core.Internal
             {
                 var ctx = completionQueue.CompletionRegistry.RegisterBatchCompletion(CompletionHandler_ISendStatusFromServerCompletionCallback, callback);
                 var optionalPayloadLength = optionalPayload != null ? new UIntPtr((ulong)optionalPayload.Length) : UIntPtr.Zero;
-                var statusDetailBytes = MarshalUtils.GetBytesUTF8(status.Detail);
-                Native.grpcsharp_call_send_status_from_server(this, ctx, status.StatusCode, statusDetailBytes, new UIntPtr((ulong)statusDetailBytes.Length), metadataArray, sendEmptyInitialMetadata ? 1 : 0,
+
+                // note that ArrayPool automatically short-circuits for zero-length arrays, returning a global zero-length array
+                byte[] statusDetailBytes = System.Buffers.ArrayPool<byte>.Shared.Rent(MarshalUtils.GetMaxBytesUTF8(status.Detail));
+                try
+                {
+                    int actualBytes = MarshalUtils.GetBytesUTF8(status.Detail, statusDetailBytes);
+                    Native.grpcsharp_call_send_status_from_server(this, ctx, status.StatusCode, statusDetailBytes, new UIntPtr((ulong)actualBytes), metadataArray, sendEmptyInitialMetadata ? 1 : 0,
                     optionalPayload, optionalPayloadLength, writeFlags).CheckOk();
+                }
+                finally
+                {
+                    System.Buffers.ArrayPool<byte>.Shared.Return(statusDetailBytes);
+                }
             }
         }
 

@@ -47,11 +47,21 @@ namespace Grpc.Core.Internal
         }
 
         /// <summary>
-        /// Returns byte array containing UTF-8 encoding of given string.
+        /// Returns the upper-limit of bytes required to UTF-8 encode a given string
         /// </summary>
-        public static byte[] GetBytesUTF8(string str)
+        public static int GetMaxBytesUTF8(string str)
+        {   // note that this is faster than GetByteCount, and since we only care
+            // about "big enough": we'll take it
+            return str.Length == 0 ? 0 : EncodingUTF8.GetMaxByteCount(str.Length);
+        }
+
+        /// <summary>
+        /// Encoded the given string into the provided buffer (which should be sufficiently sized, per GetMaxBytesUTF8),
+        /// returning the number of bytes used
+        /// </summary>
+        public static int GetBytesUTF8(string str, byte[] bytes)
         {
-            return EncodingUTF8.GetBytes(str);
+            return str.Length == 0 ? 0 : EncodingUTF8.GetBytes(str, 0, str.Length, bytes, 0);
         }
 
         /// <summary>
@@ -59,7 +69,7 @@ namespace Grpc.Core.Internal
         /// </summary>
         public static string GetStringUTF8(byte[] bytes)
         {
-            return EncodingUTF8.GetString(bytes);
+            return bytes.Length == 0 ? "" : EncodingUTF8.GetString(bytes);
         }
     }
 }
