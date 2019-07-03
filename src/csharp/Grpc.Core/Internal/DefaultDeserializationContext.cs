@@ -46,6 +46,7 @@ namespace Grpc.Core.Internal
 
         public override byte[] PayloadAsNewBuffer()
         {
+            if (payloadLength == 0) return Metadata.EmptyBlob;
             var buffer = new byte[payloadLength];
             FillContinguousBuffer(bufferReader, buffer);
             return buffer;

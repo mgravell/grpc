@@ -549,8 +549,6 @@ namespace Grpc.Core
                 }
             }
 
-            static readonly byte[] EmptyBlob = new byte[0];
-
             private static string NormalizeKey(string key)
             {
                 GrpcPreconditions.CheckNotNull(key, "key");
@@ -612,5 +610,7 @@ namespace Grpc.Core
                 return false;
             }
         }
+
+        internal static readonly byte[] EmptyBlob = new byte[0];
     }
 }
