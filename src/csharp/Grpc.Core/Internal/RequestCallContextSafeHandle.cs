@@ -29,7 +29,7 @@ namespace Grpc.Core.Internal
     internal class RequestCallContextSafeHandle : SafeHandleZeroIsInvalid, IOpCompletionCallback, IPooledObject<RequestCallContextSafeHandle>
     {
 #if GRPC_CSHARP_SUPPORT_THREADPOOLWORKITEM
-        void System.Threading.IThreadPoolWorkItem.Execute() => ((IOpCompletionCallback)this).OnComplete(true); // when called this way: means success
+        void System.Threading.IThreadPoolWorkItem.Execute() => ((IOpCompletionCallback)this).OnComplete();
 #endif
         static readonly NativeMethods Native = NativeMethods.Get();
         static readonly ILogger Logger = GrpcEnvironment.Logger.ForType<RequestCallContextSafeHandle>();
@@ -106,11 +106,17 @@ namespace Grpc.Core.Internal
             return true;
         }
 
-        void IOpCompletionCallback.OnComplete(bool success)
+        bool completionResult;
+        bool IOpCompletionCallback.Outcome
+        {
+            get { return completionResult; }
+            set { completionResult = value; }
+        }
+        void IOpCompletionCallback.OnComplete()
         {
             try
             {
-                CompletionCallback(success, this);
+                CompletionCallback(completionResult, this);
             }
             catch (Exception e)
             {

@@ -62,7 +62,9 @@ namespace Grpc.Microbenchmarks
 
             // nop the native-call via reflection
             NativeMethods.Delegates.grpcsharp_call_send_status_from_server_delegate nop = (CallSafeHandle call, BatchContextSafeHandle ctx, StatusCode statusCode, byte[] statusMessage, UIntPtr statusMessageLen, MetadataArraySafeHandle metadataArray, int sendEmptyInitialMetadata, byte[] optionalSendBuffer, UIntPtr optionalSendBufferLen, WriteFlags writeFlags) => {
-                completionRegistry.Extract(ctx.Handle).OnComplete(true); // drain the dictionary as we go
+                var callback = completionRegistry.Extract(ctx.Handle);
+                callback.Outcome = true;
+                callback.OnComplete(); // drain the dictionary as we go
                 return CallError.OK;
             };
             native.GetType().GetField(nameof(native.grpcsharp_call_send_status_from_server)).SetValue(native, nop);

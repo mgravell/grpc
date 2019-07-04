@@ -27,7 +27,8 @@ namespace Grpc.Core.Internal
         : System.Threading.IThreadPoolWorkItem
 #endif
     {
-        void OnComplete(bool success);
+        void OnComplete();
+        bool Outcome { get; set; }
     }
 
     internal interface IBufferReader
@@ -43,8 +44,9 @@ namespace Grpc.Core.Internal
     internal class BatchContextSafeHandle : SafeHandleZeroIsInvalid, IOpCompletionCallback, IPooledObject<BatchContextSafeHandle>, IBufferReader
     {
 #if GRPC_CSHARP_SUPPORT_THREADPOOLWORKITEM
-        void System.Threading.IThreadPoolWorkItem.Execute() => ((IOpCompletionCallback)this).OnComplete(true); // when called this way: means success
+        void System.Threading.IThreadPoolWorkItem.Execute() => ((IOpCompletionCallback)this).OnComplete();
 #endif
+
         static readonly NativeMethods Native = NativeMethods.Get();
         static readonly ILogger Logger = GrpcEnvironment.Logger.ForType<BatchContextSafeHandle>();
 
@@ -138,11 +140,18 @@ namespace Grpc.Core.Internal
             return true;
         }
 
-        void IOpCompletionCallback.OnComplete(bool success)
+        bool completionResult;
+        bool IOpCompletionCallback.Outcome
+        {
+            get { return completionResult; }
+            set { completionResult = value; }
+        }
+
+        void IOpCompletionCallback.OnComplete()
         {
             try
             {
-                completionCallbackData.Callback(success, this, completionCallbackData.State);
+                completionCallbackData.Callback(completionResult, this, completionCallbackData.State);
             }
             catch (Exception e)
             {

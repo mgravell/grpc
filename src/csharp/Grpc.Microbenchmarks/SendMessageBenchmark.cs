@@ -57,7 +57,8 @@ namespace Grpc.Microbenchmarks
             {
                 call.StartSendMessage(sendCompletionCallback, payload, writeFlags, false);
                 var callback = completionRegistry.Extract(completionRegistry.LastRegisteredKey);
-                callback.OnComplete(true);
+                callback.Outcome = true;
+                callback.OnComplete();
             }
             cq.Dispose();
         }

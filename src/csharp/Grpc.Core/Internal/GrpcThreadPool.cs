@@ -42,8 +42,9 @@ namespace Grpc.Core.Internal
         readonly int poolSize;
         readonly int completionQueueCount;
         readonly bool inlineHandlers;
-        readonly WaitCallback runCompletionQueueEventCallbackSuccess;
-        readonly WaitCallback runCompletionQueueEventCallbackFailure;
+#if !GRPC_CSHARP_SUPPORT_THREADPOOLWORKITEM
+        readonly WaitCallback runCompletionQueueEventCallback;
+#endif
         readonly AtomicCounter queuedContinuationCounter = new AtomicCounter();
 
         readonly List<BasicProfiler> threadProfilers = new List<BasicProfiler>();  // profilers assigned to threadpool threads
@@ -67,9 +68,9 @@ namespace Grpc.Core.Internal
             this.inlineHandlers = inlineHandlers;
             GrpcPreconditions.CheckArgument(poolSize >= completionQueueCount,
                 "Thread pool size cannot be smaller than the number of completion queues used.");
-
-            this.runCompletionQueueEventCallbackSuccess = new WaitCallback((callback) => RunCompletionQueueEventCallback((IOpCompletionCallback) callback, true));
-            this.runCompletionQueueEventCallbackFailure = new WaitCallback((callback) => RunCompletionQueueEventCallback((IOpCompletionCallback) callback, false));
+#if !GRPC_CSHARP_SUPPORT_THREADPOOLWORKITEM
+            this.runCompletionQueueEventCallback = new WaitCallback((callback) => RunCompletionQueueEventCallback((IOpCompletionCallback)callback));
+#endif
         }
 
         public void Start()
@@ -177,28 +178,21 @@ namespace Grpc.Core.Internal
                     {
                         var callback = cq.CompletionRegistry.Extract(tag);
                         queuedContinuationCounter.Increment();
+                        callback.Outcome = success;
                         if (!inlineHandlers)
                         {
                             // Use cached delegates to avoid unnecessary allocations
 #if GRPC_CSHARP_SUPPORT_THREADPOOLWORKITEM
-                            if (success)
-                            {   // uses the callback as a queue-item, avoiding a work-item
-                                // allocation; all implementations of IOpCompletionCallback know
-                                // to interpret this as success
-                                ThreadPool.UnsafeQueueUserWorkItem(callback, preferLocal: false);
-                            }
-                            else
-                            {
-                                ThreadPool.QueueUserWorkItem(runCompletionQueueEventCallbackFailure, callback);
-                            }
+                            // uses the callback as a queue-item, avoiding a work-item allocation
+                            ThreadPool.UnsafeQueueUserWorkItem(callback, preferLocal: false);
 #else
-                            ThreadPool.QueueUserWorkItem(success ? runCompletionQueueEventCallbackSuccess : runCompletionQueueEventCallbackFailure, callback);
+                            ThreadPool.QueueUserWorkItem(runCompletionQueueEventCallback);
 #endif
 
                         }
                         else
                         {
-                            RunCompletionQueueEventCallback(callback, success);
+                            RunCompletionQueueEventCallback(callback);
                         }
                     }
                     catch (Exception e)
@@ -239,11 +233,11 @@ namespace Grpc.Core.Internal
             return list.AsReadOnly();
         }
 
-        private void RunCompletionQueueEventCallback(IOpCompletionCallback callback, bool success)
+        private void RunCompletionQueueEventCallback(IOpCompletionCallback callback)
         {
             try
             {
-                callback.OnComplete(success);
+                callback.OnComplete();
             }
             catch (Exception e)
             {
