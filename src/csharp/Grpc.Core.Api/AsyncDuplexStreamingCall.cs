@@ -58,22 +58,14 @@ namespace Grpc.Core
         /// </summary>
         /// <param name="requestStream">Stream of request values.</param>
         /// <param name="responseStream">Stream of response values.</param>
-        /// <param name="responseHeadersAsync">Response headers of the asynchronous call.</param>
-        /// <param name="getStatusFunc">Delegate returning the status of the call.</param>
-        /// <param name="getTrailersFunc">Delegate returning the trailing metadata of the call.</param>
-        /// <param name="disposeAction">Delegate to invoke when Dispose is called on the call object.</param>
-        /// <param name="state">State object for use with the callback parameters.</param>
+        /// <param name="asyncCall">The underlying async call.</param>
         public AsyncDuplexStreamingCall(IClientStreamWriter<TRequest> requestStream,
                                         IAsyncStreamReader<TResponse> responseStream,
-                                        Func<object, Task<Metadata>> responseHeadersAsync,
-                                        Func<object, Status> getStatusFunc,
-                                        Func<object, Metadata> getTrailersFunc,
-                                        Action<object> disposeAction,
-                                        object state)
+                                        IAsyncCall asyncCall)
         {
             this.requestStream = requestStream;
             this.responseStream = responseStream;
-            this.callState = new AsyncCallState(responseHeadersAsync, getStatusFunc, getTrailersFunc, disposeAction, state);
+            this.callState = new AsyncCallState(asyncCall);
         }
 
         /// <summary>

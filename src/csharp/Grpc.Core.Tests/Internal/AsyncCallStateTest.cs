@@ -45,13 +45,15 @@ namespace Grpc.Core.Internal.Tests
             Assert.True(disposed);
         }
 
-        class State
+        class State : IAsyncCall
         {
-            public bool disposed = false;
-            public Task<Metadata> responseHeaders = Task.FromResult(new Metadata());
-            public Metadata trailers = new Metadata();
-            public Status status = new Status(StatusCode.DataLoss, "oops");
-            public void Dispose() { disposed = true; }
+            public readonly Task<Metadata> responseHeaders = Task.FromResult(new Metadata());
+            public readonly Metadata trailers = new Metadata();
+            public bool cancelled = false;
+            public Task<Metadata> ResponseHeadersAsync { get { return responseHeaders; } }
+            public Metadata GetTrailers() { return trailers; }
+            public Status GetStatus() { return new Status(StatusCode.DataLoss, "oops"); }
+            public void Cancel() { cancelled = true; }
         }
 
         [Test]
@@ -59,12 +61,7 @@ namespace Grpc.Core.Internal.Tests
         {
             var callbackState = new State();
 
-            var state = new AsyncCallState(
-                obj => ((State)obj).responseHeaders,
-                obj => ((State)obj).status,
-                obj => ((State)obj).trailers,
-                obj => ((State)obj).Dispose(),
-                callbackState);
+            var state = new AsyncCallState(callbackState);
 
             Assert.AreSame(callbackState.responseHeaders, state.ResponseHeadersAsync());
 
@@ -74,9 +71,9 @@ namespace Grpc.Core.Internal.Tests
 
             Assert.AreSame(callbackState.trailers, state.GetTrailers());
 
-            Assert.False(callbackState.disposed);
+            Assert.False(callbackState.cancelled);
             state.Dispose();
-            Assert.True(callbackState.disposed);
+            Assert.True(callbackState.cancelled);
         }
     }
 }

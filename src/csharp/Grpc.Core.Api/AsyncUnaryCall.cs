@@ -54,20 +54,12 @@ namespace Grpc.Core
         /// Creates a new AsyncUnaryCall object with the specified properties.
         /// </summary>
         /// <param name="responseAsync">The response of the asynchronous call.</param>
-        /// <param name="responseHeadersAsync">Response headers of the asynchronous call.</param>
-        /// <param name="getStatusFunc">Delegate returning the status of the call.</param>
-        /// <param name="getTrailersFunc">Delegate returning the trailing metadata of the call.</param>
-        /// <param name="disposeAction">Delegate to invoke when Dispose is called on the call object.</param>
-        /// <param name="state">State object for use with the callback parameters.</param>
+        /// <param name="asyncCall">The underlying async call.</param>
         public AsyncUnaryCall(Task<TResponse> responseAsync,
-                              Func<object, Task<Metadata>> responseHeadersAsync,
-                              Func<object, Status> getStatusFunc,
-                              Func<object, Metadata> getTrailersFunc,
-                              Action<object> disposeAction,
-                              object state)
+                              IAsyncCall asyncCall)
         {
             this.responseAsync = responseAsync;
-            callState = new AsyncCallState(responseHeadersAsync, getStatusFunc, getTrailersFunc, disposeAction, state);
+            callState = new AsyncCallState(asyncCall);
         }
 
         /// <summary>

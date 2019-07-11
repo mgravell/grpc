@@ -28,24 +28,17 @@ namespace Grpc.Core
     /// </summary>
     internal /* readonly */ struct AsyncCallState // can be made readonly in C# 7.2
     {
-        readonly object responseHeadersAsync; // Task<Metadata> or Func<object, Task<Metadata>>
-        readonly object getStatusFunc; // Func<Status> or Func<object, Status>
-        readonly object getTrailersFunc; // Func<Metadata> or Func<object, Metadata>
-        readonly object disposeAction; // Action or Action<object>
-        readonly object callbackState; // arg0 for the callbacks above, if needed
+        readonly object compositeState; // IAsyncCall or Task<Metadata>
+        readonly Func<Status> getStatusFunc; // only if not IAsyncCall-based
+        readonly Func<Metadata> getTrailersFunc; // only if not IAsyncCall-based
+        readonly Action disposeAction; // only if not IAsyncCall-based
 
-        internal AsyncCallState(
-            Func<object, Task<Metadata>> responseHeadersAsync,
-            Func<object, Status> getStatusFunc,
-            Func<object, Metadata> getTrailersFunc,
-            Action<object> disposeAction,
-            object callbackState)
+        internal AsyncCallState(IAsyncCall asyncCall)
         {
-            this.responseHeadersAsync = responseHeadersAsync;
-            this.getStatusFunc = getStatusFunc;
-            this.getTrailersFunc = getTrailersFunc;
-            this.disposeAction = disposeAction;
-            this.callbackState = callbackState;
+            this.compositeState = asyncCall;
+            this.getStatusFunc = null;
+            this.getTrailersFunc = null;
+            this.disposeAction = null;
         }
 
         internal AsyncCallState(
@@ -54,39 +47,36 @@ namespace Grpc.Core
             Func<Metadata> getTrailersFunc,
             Action disposeAction)
         {
-            this.responseHeadersAsync = responseHeadersAsync;
+            this.compositeState = responseHeadersAsync;
             this.getStatusFunc = getStatusFunc;
             this.getTrailersFunc = getTrailersFunc;
             this.disposeAction = disposeAction;
-            this.callbackState = null;
         }
 
         internal Task<Metadata> ResponseHeadersAsync()
         {
-            var withState = responseHeadersAsync as Func<object, Task<Metadata>>;
-            return withState != null ? withState(callbackState)
-                : (Task<Metadata>)responseHeadersAsync;
+            var asyncState = compositeState as IAsyncCall;
+            return asyncState != null ? asyncState.ResponseHeadersAsync
+                : (Task<Metadata>)compositeState;
         }
 
         internal Status GetStatus()
         {
-            var withState = getStatusFunc as Func<object, Status>;
-            return withState != null ? withState(callbackState)
-                : ((Func<Status>)getStatusFunc)();
+            var asyncState = compositeState as IAsyncCall;
+            return asyncState != null ? asyncState.GetStatus() : getStatusFunc();
         }
 
         internal Metadata GetTrailers()
         {
-            var withState = getTrailersFunc as Func<object, Metadata>;
-            return withState != null ? withState(callbackState)
-                : ((Func<Metadata>)getTrailersFunc)();
+            var asyncState = compositeState as IAsyncCall;
+            return asyncState != null ? asyncState.GetTrailers() : getTrailersFunc();
         }
 
         internal void Dispose()
         {
-            var withState = disposeAction as Action<object>;
-            if (withState != null) withState(callbackState);
-            else ((Action)disposeAction)();
+            var asyncState = compositeState as IAsyncCall;
+            if (asyncState != null) asyncState.Cancel();
+            else disposeAction();
         }
     }
 }
