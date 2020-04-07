@@ -51,7 +51,7 @@ namespace Grpc.Core.Internal
         protected bool started;
         protected bool cancelRequested;
 
-        protected TaskCompletionSource<TRead> streamingReadTcs;  // Completion of a pending streaming read if not null.
+        protected TaskCompletionSource<PossibleValue<TRead>> streamingReadTcs;  // Completion of a pending streaming read if not null.
         protected TaskCompletionSource<object> streamingWriteTcs;  // Completion of a pending streaming write or send close from client if not null.
         protected TaskCompletionSource<object> sendStatusFromServerTcs;
         protected bool isStreamingWriteCompletionDelayed;  // Only used for the client side.
@@ -140,7 +140,7 @@ namespace Grpc.Core.Internal
         /// <summary>
         /// Initiates reading a message. Only one read operation can be active at a time.
         /// </summary>
-        protected Task<TRead> ReadMessageInternalAsync()
+        protected Task<PossibleValue<TRead>> ReadMessageInternalAsync()
         {
             lock (myLock)
             {
@@ -157,7 +157,7 @@ namespace Grpc.Core.Internal
                 GrpcPreconditions.CheckState(!disposed);
 
                 call.StartReceiveMessage(ReceivedMessageCallback);
-                streamingReadTcs = new TaskCompletionSource<TRead>();
+                streamingReadTcs = new TaskCompletionSource<PossibleValue<TRead>>();
                 return streamingReadTcs.Task;
             }
         }
@@ -335,7 +335,7 @@ namespace Grpc.Core.Internal
             TRead msg = default(TRead);
             var deserializeException = (success && receivedMessageReader.TotalLength.HasValue) ? TryDeserialize(receivedMessageReader, out msg) : null;
 
-            TaskCompletionSource<TRead> origTcs = null;
+            TaskCompletionSource<PossibleValue<TRead>> origTcs = null;
             bool releasedResources;
             lock (myLock)
             {
@@ -372,7 +372,7 @@ namespace Grpc.Core.Internal
                 origTcs.SetException(new IOException("Failed to deserialize request message.", deserializeException));
                 return;
             }
-            origTcs.SetResult(msg);
+            origTcs.SetResult(new PossibleValue<TRead>(msg));
         }
 
         protected ISendCompletionCallback SendCompletionCallback => this;

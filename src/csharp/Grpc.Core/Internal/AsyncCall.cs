@@ -26,6 +26,20 @@ using Grpc.Core.Utils;
 namespace Grpc.Core.Internal
 {
     /// <summary>
+    /// Generalizes "value" and "has value" - like Nullable<typeparamref name="T"/> but for any <typeparamref name="T"/> including reference types
+    /// </summary>
+    internal readonly struct PossibleValue<T>
+    {
+        public PossibleValue(T value)
+        {
+            Value = value;
+            HasValue = true;
+        }
+        public bool HasValue { get; }
+        public T Value { get; }
+    }
+
+    /// <summary>
     /// Manages client side native call lifecycle.
     /// </summary>
     internal class AsyncCall<TRequest, TResponse> : AsyncCallBase<TRequest, TResponse>, IUnaryResponseClientCallback, IReceivedStatusOnClientCallback, IReceivedResponseHeadersCallback
@@ -304,7 +318,7 @@ namespace Grpc.Core.Internal
         /// <summary>
         /// Receives a streaming response. Only one pending read action is allowed at any given time.
         /// </summary>
-        public Task<TResponse> ReadMessageAsync()
+        public Task<PossibleValue<TResponse>> ReadMessageAsync()
         {
             return ReadMessageInternalAsync();
         }
